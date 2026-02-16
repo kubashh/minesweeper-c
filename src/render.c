@@ -2,45 +2,45 @@
 
 // all printing here
 
-static inline void bufprint(char* str) {
-    screenBufLen += sprintf(&screenBuf[screenBufLen], str);
+void bufprint(char* str) {
+    screen_buf_len += sprintf(&screen_buf[screen_buf_len], str);
 }
 
-static inline void updateBufTime() {
-    if(game.isPlaying) game.lastTimePlaying = now_s();
-    u32 timeDif = game.lastTimePlaying - game.timeStart;
-    screenBufLen += sprintf(&screenBuf[screenBufLen], "%.2d:%.2d", timeDif / 60, timeDif % 60);
+void update_buf_time() {
+    if(game.is_playing) game.last_time_playing = time(NULL);
+    time_t time_dif = game.last_time_playing - game.time_start;
+    screen_buf_len += sprintf(&screen_buf[screen_buf_len], "%.2d:%.2d", time_dif / 60, time_dif % 60);
 }
 
-static inline void updateBufHeader() {
-    screenBufLen += sprintf(
-        &screenBuf[screenBufLen],
-        game.selectedLevel == EASY ? BG_BLACK "M:%.2d    %c   " :
-        game.selectedLevel == MEDIUM ? BG_BLACK "M:%.2d    %c                 " :
+void update_buf_header() {
+    screen_buf_len += sprintf(
+        &screen_buf[screen_buf_len],
+        game.selected_level == EASY ? BG_BLACK "M:%.2d    %c   " :
+        game.selected_level == MEDIUM ? BG_BLACK "M:%.2d    %c                 " :
         BG_BLACK "M:%.2d    %c                                             ",
-        game.minesLeft,
-        game.flagMode ? CELL_FLAG : ' '
+        game.mines_left,
+        game.flag_mode ? CELL_FLAG : ' '
     );
-    updateBufTime();
+    update_buf_time();
     bufprint(RESETLN);
 }
 
-static inline void updateBoardScreen() {
-    u32 index = strlen(screenBuf);
-    for(u8 x = 0; x < level.x; x++) {
-        strcpy(&screenBuf[index], BG_BLACK);
+static inline void update_board_screen() {
+    size_t index = strlen(screen_buf);
+    for(int x = 0; x < level.x; x++) {
+        strcpy(&screen_buf[index], BG_BLACK);
         index += sizeof(BG_BLACK) - 1;
-        for(u8 y = 0; y < level.y; y++) {
-            const u8 j = y << 1; // * 2
-            if(game.isHightlighting && x == game.targetCell.y && y == game.targetCell.x) {
-                strcpy(&screenBuf[index], COLOR_SELECTED);
+        for(int y = 0; y < level.y; y++) {
+            const int j = y << 1; // * 2
+            if(game.is_hightlighting && x == game.target_cell.y && y == game.target_cell.x) {
+                strcpy(&screen_buf[index], COLOR_SELECTED);
                 index += sizeof(COLOR_SELECTED) - 1;
-            } else if(board[x][y].isFlagged) {
-                strcpy(&screenBuf[index], COLOR_MINE_VALUE);
+            } else if(board[x][y].is_flagged) {
+                strcpy(&screen_buf[index], COLOR_MINE_VALUE);
                 index += sizeof(COLOR_MINE_VALUE) - 1;
-            } else if(board[x][y].isOpened)
+            } else if(board[x][y].is_opened)
                 if(board[x][y].value != CELL_EMPTY) {
-                    u8* str;
+                    char* str;
                     switch(board[x][y].value) {
                         case '1':
                             str = COLOR_BLUE;
@@ -66,61 +66,59 @@ static inline void updateBoardScreen() {
                             break;
                     }
                     if(str) {
-                        strcpy(&screenBuf[index], str);
+                        strcpy(&screen_buf[index], str);
                         index += strlen(str);
                     }
-                    screenBuf[index++] = board[x][y].value;
+                    screen_buf[index++] = board[x][y].value;
                     if(str) {
-                        strcpy(&screenBuf[index], COLOR_WHITE);
+                        strcpy(&screen_buf[index], COLOR_WHITE);
                         index += sizeof(COLOR_WHITE) - 1;
                     }
-                } else screenBuf[index++] = ' ';
-            else screenBuf[index++] = '-';
-            screenBuf[index++] = ' ';
+                } else screen_buf[index++] = ' ';
+            else screen_buf[index++] = '-';
+            screen_buf[index++] = ' ';
         }
-        strcpy(&screenBuf[index - 1], RESETLN);
+        strcpy(&screen_buf[index - 1], RESETLN);
         index += sizeof(RESETLN) - 2;
     }
-    screenBuf[index] = '\0';
+    screen_buf[index] = '\0';
 }
 
-static inline void render() {
+void render() {
     cross_clear();
-    printf("%s", screenBuf);
-    screenBufLen = 0;
-    screenBuf[0] = '\0';
+    printf("%s", screen_buf);
+    screen_buf_len = 0;
+    screen_buf[0] = '\0';
 }
 
-static inline void printBoard() {
-    cross_clear();
-    updateBufHeader();
-    updateBoardScreen();
+void print_board() {
+    update_buf_header();
+    update_board_screen();
 
     // Print
     render();
 
-    game.isHightlighting = !game.isHightlighting;
+    game.is_hightlighting = !game.is_hightlighting;
 }
 
-static inline void printResultsAndSelectLevelMessage() {
-    if(game.winMsg > 0) {
-        screenBufLen += sprintf(
-            &screenBuf[screenBufLen],
-            "\033[48;2;0;0;0m" "Koniec gry, %s! Czas: ",
-            game.winMsg == 2 ? "\033[31m" "przegrales" "\033[37m" : "\033[92m" "wygrales" "\033[37m"
+void print_results_or_select_level_message() {
+    if(game.win_msg != NULL) {
+        screen_buf_len += sprintf(
+            &screen_buf[screen_buf_len],
+            game.win_msg
         );
 
-        updateBufTime();
-        screenBufLen += sprintf(
-            &screenBuf[screenBufLen],
-            ". Poziom: %s" RESETLN,
-            game.selectedLevel == EASY ? COLOR_GREEN "easy (latwy)" COLOR_WHITE :
-            game.selectedLevel == MEDIUM ? COLOR_YELLOW "medium (sredni)" COLOR_WHITE : COLOR_RED "hard (trudny)" COLOR_WHITE
+        update_buf_time();
+        screen_buf_len += sprintf(
+            &screen_buf[screen_buf_len],
+            ". Level: %s" RESETLN,
+            game.selected_level == EASY ? COLOR_GREEN "easy" COLOR_WHITE :
+            game.selected_level == MEDIUM ? COLOR_YELLOW "medium" COLOR_WHITE : COLOR_RED "hard" COLOR_WHITE
         );
     } else { // Print starting message
         bufprint(STARTING_MESSAGE);
     }
-    // screenBufLen += sprintf(&screenBuf[screenBufLen], SELECT_LEVEL_MESSAGE, game.lastChar != '\n' ? game.lastChar : ' ');
+    // screen_buf_len += sprintf(&screen_buf[screen_buf_len], SELECT_LEVEL_MESSAGE, game.last_char != '\n' ? game.last_char : ' ');
     render();
-    printf(SELECT_LEVEL_MESSAGE, game.lastChar != '\n' ? game.lastChar : ' ');
+    printf(SELECT_LEVEL_MESSAGE, game.last_char != '\n' ? game.last_char : ' ');
 }

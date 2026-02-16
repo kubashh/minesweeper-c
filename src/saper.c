@@ -1,33 +1,21 @@
 #include "core.c"
-#include "hjson.c"
 
-void* runRender(void* arg) {
+void* run_render(void* arg) {
     while(true) {
-        if(game.isPlaying) printBoard();
-        cross_sleep_ms(saperConfig.frameDelayMs);
+        if(game.is_playing) print_board();
+        cross_sleep_ms(FRAME_DELAY_MS);
     }
 }
 
-u8 main() {
-    randomize();
+int main() {
+    srand(time(NULL));
 
-    u8* configFile = read_file_alloc("saper_config.json");
-    if(configFile != NULL) {
-        HJson* configJson = HJson_parse(configFile);
-        HJson* frameDelayNode = HJson_ObjectAtKey(configJson, "frameDelayMs");
-        if(HJson_IsNumber(frameDelayNode)) {
-            saperConfig.frameDelayMs = frameDelayNode->number;
-        }
-        HJson_free(configJson);
-        free(configFile);
-    }
+    set_level();
 
-    setLevel();
+    cross_thread_t keyboard_listener_id = cross_thread_create(keyboard_listener);
+    cross_thread_create(run_render); // no need wait for render, only update matters
 
-    cross_thread_t idKeyboardListener = cross_thread_create(keyboardListener);
-    cross_thread_create(runRender);
-
-    cross_thread_join(idKeyboardListener);
+    cross_thread_join(keyboard_listener_id);
 
     return 0;
 }

@@ -1,37 +1,10 @@
-#ifndef CROSS_UTIL_H
-#define CROSS_UTIL_H
+#pragma once
 
 #include "stdio.h"
 #include "stdlib.h"
-#include "stdint.h"
+#include "stdbool.h"
 #include "time.h"
 #include "string.h"
-
-//
-// bool
-//
-
-#ifndef true
-
-#define bool    _Bool
-#define true    1
-#define false   0
-
-#endif
-
-//
-// int, uint
-//
-
-#define u8 unsigned char
-#define u32 uint32_t
-#define u64 uint64_t
-#define i8 char
-#define i32 int32_t
-#define i64 int64_t
-
-#define f32 float
-#define f64 double
 
 //
 // getchar
@@ -45,12 +18,12 @@
 #endif
 
 // Cross-platform function to get a single character
-u8 cross_getchar() {
+int cross_getchar() {
 #ifdef _WIN32
     return _getch();  // Reads a single key without waiting for Enter
 #else
     struct termios oldt, newt;
-    u8 ch;
+    char ch;
 
     // Get current terminal settings
     tcgetattr(STDIN_FILENO, &oldt);
@@ -73,7 +46,7 @@ u8 cross_getchar() {
 // sleep
 //
 
-void cross_sleep_ms(u32 ms);
+void cross_sleep_ms(int ms);
 
 #ifdef _WIN32
     #include "windows.h"   // Sleep
@@ -81,7 +54,7 @@ void cross_sleep_ms(u32 ms);
     #include "unistd.h"    // usleep
 #endif
 
-void cross_sleep_ms(u32 ms) {
+void cross_sleep_ms(int ms) {
 #ifdef _WIN32
     Sleep(ms); // ms
 #else
@@ -105,9 +78,9 @@ void cross_sleep_ms(u32 ms) {
 
 typedef thread_return_t (*thread_func_t)(void *);
 
-i32 cross_thread_create_basic(cross_thread_t *t, thread_func_t func);
+int cross_thread_create_basic(cross_thread_t *t, thread_func_t func);
 cross_thread_t cross_thread_create(thread_func_t func);
-i32 cross_thread_join(cross_thread_t t);
+int cross_thread_join(cross_thread_t t);
 
 
 #ifdef _WIN32
@@ -119,7 +92,7 @@ static DWORD WINAPI win_thread_func(LPVOID arg) {
     return func(farg);
 }
 
-i32 cross_thread_create(cross_thread_t *t, thread_func_t func, void *arg) {
+int cross_thread_create(cross_thread_t *t, thread_func_t func, void *arg) {
     void **pack = malloc(2 * sizeof(void*));
     pack[0] = func;
     pack[1] = arg;
@@ -127,7 +100,7 @@ i32 cross_thread_create(cross_thread_t *t, thread_func_t func, void *arg) {
     return (*t == NULL);
 }
 
-i32 cross_thread_join(cross_thread_t t) {
+int cross_thread_join(cross_thread_t t) {
     WaitForSingleObject(t, INFINITE);
     CloseHandle(t);
     return 0;
@@ -135,11 +108,11 @@ i32 cross_thread_join(cross_thread_t t) {
 
 #else // LINUX / POSIX
 
-i32 cross_thread_create_basic(cross_thread_t *t, thread_func_t func) {
+int cross_thread_create_basic(cross_thread_t *t, thread_func_t func) {
     return pthread_create(t, NULL, func, NULL);
 }
 
-i32 cross_thread_join(cross_thread_t t) {
+int cross_thread_join(cross_thread_t t) {
     return pthread_join(t, NULL);
 }
 
@@ -149,37 +122,6 @@ cross_thread_t cross_thread_create(thread_func_t func) {
     cross_thread_t t;
     cross_thread_create_basic(&t, func);
     return t;
-}
-
-//
-// read_file
-//
-
-u8* read_file_alloc(const u8* const filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) return NULL;
-
-    // Move the file pointer to the end of the file to get the size
-    fseek(file, 0, SEEK_END);
-    u32 fileSize = ftell(file);
-    fseek(file, 0, SEEK_SET);  // Move back to the beginning of the file
-
-    // Allocate memory for the file content, including space for the null terminator
-    u8 *content = (u8 *)malloc(fileSize + 1);
-    if (content == NULL) {
-        perror("Failed to allocate memory");
-        fclose(file);
-        return NULL;
-    }
-
-    // Read the file contents into the allocated memory
-    u32 bytesRead = fread(content, 1, fileSize, file);
-    content[bytesRead] = '\0';  // Null-terminate the string
-
-    // Close the file
-    fclose(file);
-
-    return content;
 }
 
 //
@@ -196,37 +138,8 @@ void cross_clear() {
 #endif
 }
 
-//
-// now_s
-//
-
-u64 now_s();
-
-u64 now_s() {
-    return time(NULL);
+void clear_n(int n) {
+    char buf[16];
+    sprintf(buf, "\x1B[%dD", n);
+    printf(buf);
 }
-
-//
-// randomize
-//
-
-void randomize();
-u32 rand_max(u32 max);
-
-void randomize() {
-    srand(time(NULL));
-}
-
-u32 rand_max(u32 max) {
-    return rand() % max;
-}
-
-
-// saper only
-void cps(void *dest, const void *src) { // because of dest type
-    u8 *d = dest;
-    const u8 *s = src;
-    while (*s != '\0') *d++ = *s++;
-}
-
-#endif
